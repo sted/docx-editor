@@ -1817,9 +1817,18 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
                   continue;
                 }
 
-                if (span.firstChild?.nodeType !== Node.TEXT_NODE) continue;
-
-                const textNode = span.firstChild as Text;
+                // Find the text node — may be a direct child or inside an <a> for hyperlinks
+                let textNode: Text | null = null;
+                if (span.firstChild?.nodeType === Node.TEXT_NODE) {
+                  textNode = span.firstChild as Text;
+                } else if (
+                  span.firstChild?.nodeType === Node.ELEMENT_NODE &&
+                  (span.firstChild as HTMLElement).tagName === 'A' &&
+                  span.firstChild.firstChild?.nodeType === Node.TEXT_NODE
+                ) {
+                  textNode = span.firstChild.firstChild as Text;
+                }
+                if (!textNode) continue;
                 const ownerDoc = spanEl.ownerDocument;
                 if (!ownerDoc) continue;
 
@@ -2109,31 +2118,12 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
       (e: React.MouseEvent) => {
         if (!hiddenPMRef.current || e.button !== 0) return; // Only handle left click
 
-        // Intercept all hyperlink clicks — single DOM walk
-        // Must be before readOnly check so links work in read-only mode
+        // Prevent default browser navigation for hyperlink clicks,
+        // but let the rest of the handler run for cursor placement and drag selection.
+        // The popup is shown in handlePagesClick (on mouseup) instead.
         const anchorEl = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
         if (anchorEl) {
-          e.preventDefault();
-          e.stopPropagation();
-          const href = anchorEl.getAttribute('href') || '';
-          if (href.startsWith('#')) {
-            return; // Internal bookmark — let handlePagesClick handle navigation
-          }
-          // External hyperlink — show popup instead of navigating
-          if (onHyperlinkClick) {
-            const displayText = anchorEl.textContent || '';
-            const tooltip = anchorEl.getAttribute('title') || undefined;
-            const anchorRect = anchorEl.getBoundingClientRect();
-            onHyperlinkClick({ href, displayText, tooltip, anchorRect });
-          }
-          // Still place the cursor at the click position
-          const pmPos = getPositionFromMouse(e.clientX, e.clientY);
-          if (pmPos !== null) {
-            hiddenPMRef.current.setSelection(pmPos);
-            hiddenPMRef.current.focus();
-            setIsFocused(true);
-          }
-          return;
+          e.preventDefault(); // Prevent navigation only
         }
 
         if (readOnly) return;
@@ -2350,15 +2340,7 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
         hiddenPMRef.current.focus();
         setIsFocused(true);
       },
-      [
-        getPositionFromMouse,
-        findCellPosFromPmPos,
-        readOnly,
-        hfEditMode,
-        onBodyClick,
-        zoom,
-        onHyperlinkClick,
-      ]
+      [getPositionFromMouse, findCellPosFromPmPos, readOnly, hfEditMode, onBodyClick, zoom]
     );
 
     /**
@@ -2677,11 +2659,10 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
      */
     const handlePagesClick = useCallback(
       (e: React.MouseEvent) => {
-        // Intercept all hyperlink clicks — single DOM walk
+        // Handle hyperlink clicks (single-click only, not drag-to-select)
         const anchorEl = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
         if (anchorEl) {
           e.preventDefault();
-          e.stopPropagation();
           const href = anchorEl.getAttribute('href') || '';
           if (href.startsWith('#')) {
             // Internal bookmark — navigate within document
@@ -2708,8 +2689,17 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
                 }
               }
             }
+          } else if (onHyperlinkClick) {
+            // External hyperlink — show popup only if not a drag-to-select
+            const view = hiddenPMRef.current?.getView();
+            const hasRangeSelection = view && view.state.selection.from !== view.state.selection.to;
+            if (!hasRangeSelection) {
+              const displayText = anchorEl.textContent || '';
+              const tooltip = anchorEl.getAttribute('title') || undefined;
+              const anchorRect = anchorEl.getBoundingClientRect();
+              onHyperlinkClick({ href, displayText, tooltip, anchorRect });
+            }
           }
-          // External links: already handled by mousedown, just prevent default
           return;
         }
 
@@ -2797,7 +2787,7 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
           }
         }
       },
-      [getPositionFromMouse, onHeaderFooterDoubleClick]
+      [getPositionFromMouse, onHeaderFooterDoubleClick, onHyperlinkClick]
     );
 
     /**
