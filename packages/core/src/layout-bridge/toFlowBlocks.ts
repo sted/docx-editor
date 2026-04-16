@@ -36,7 +36,7 @@ import type {
   FontSizeAttrs,
   FontFamilyAttrs,
 } from '../prosemirror/schema/marks';
-import type { Theme, SectionProperties } from '../types/document';
+import type { Theme, SectionProperties, NumberFormat } from '../types/document';
 import { resolveColor, resolveColorToHex, resolveHighlightToCss } from '../utils/colorResolver';
 import { pointsToPixels } from '../utils/units';
 
@@ -52,6 +52,13 @@ export type ToFlowBlocksOptions = {
   theme?: Theme | null;
   /** Page content height in pixels (pageHeight - marginTop - marginBottom). Images taller than this are scaled down to fit. */
   pageContentHeight?: number;
+  /**
+   * Per-numId counter stacks used to resolve list markers.
+   * Mutated as paragraphs are visited (including inside tables and text boxes)
+   * so that list numbering remains continuous across containers.
+   * Allocated by toFlowBlocks() if not supplied.
+   */
+  listCounters?: Map<number, number[]>;
 };
 
 const DEFAULT_FONT = 'Calibri';
@@ -99,6 +106,89 @@ function formatNumberedMarker(counters: number[], level: number): string {
   }
   if (parts.length === 0) return '1.';
   return `${parts.join('.')}.`;
+}
+
+const ROMAN_PAIRS: Array<[number, string]> = [
+  [1000, 'M'],
+  [900, 'CM'],
+  [500, 'D'],
+  [400, 'CD'],
+  [100, 'C'],
+  [90, 'XC'],
+  [50, 'L'],
+  [40, 'XL'],
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I'],
+];
+
+function toRoman(n: number, upper: boolean): string {
+  if (n <= 0) return '';
+  let value = n;
+  let out = '';
+  for (const [num, sym] of ROMAN_PAIRS) {
+    while (value >= num) {
+      out += sym;
+      value -= num;
+    }
+  }
+  return upper ? out : out.toLowerCase();
+}
+
+// Spreadsheet-style: 1→A, 26→Z, 27→AA, 28→AB, ...
+function toLetter(n: number, upper: boolean): string {
+  if (n <= 0) return '';
+  let value = n;
+  let out = '';
+  while (value > 0) {
+    const rem = (value - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    value = Math.floor((value - 1) / 26);
+  }
+  return upper ? out : out.toLowerCase();
+}
+
+function formatCounter(value: number, fmt: NumberFormat | undefined): string {
+  if (value <= 0) return '';
+  switch (fmt) {
+    case 'upperRoman':
+      return toRoman(value, true);
+    case 'lowerRoman':
+      return toRoman(value, false);
+    case 'upperLetter':
+      return toLetter(value, true);
+    case 'lowerLetter':
+      return toLetter(value, false);
+    case 'decimalZero':
+      return value < 10 ? `0${value}` : String(value);
+    case 'none':
+      return '';
+    default:
+      // decimal and unsupported formats fall back to decimal
+      return String(value);
+  }
+}
+
+/**
+ * Resolve an OOXML lvlText template like "%1.%2." against the counter stack
+ * and per-level numFmt list (ECMA-376 §17.9.11).
+ *
+ * Exported for unit testing.
+ */
+export function resolveListTemplate(
+  template: string,
+  counters: number[],
+  levelNumFmts: NumberFormat[] | undefined
+): string {
+  return template.replace(/%(\d)/g, (_, digit) => {
+    const idx = parseInt(digit, 10) - 1;
+    if (idx < 0) return '';
+    const value = counters[idx] ?? 0;
+    const fmt = levelNumFmts?.[idx] ?? 'decimal';
+    return formatCounter(value, fmt);
+  });
 }
 
 /**
@@ -400,9 +490,52 @@ function paragraphToRuns(node: PMNode, startPos: number, _options: ToFlowBlocksO
 }
 
 /**
+ * Advance the counter stack for a list paragraph and return the rendered
+ * marker. Mutates `counters` in place. Returns null when no marker should
+ * be drawn (numId is missing or 0 — "no numbering" per ECMA-376).
+ */
+function computeListMarker(
+  pmAttrs: PMParagraphAttrs,
+  listCounters: Map<number, number[]>
+): string | null {
+  const numPr = pmAttrs.numPr;
+  if (!numPr) return null;
+  const numId = numPr.numId;
+  if (numId == null || numId === 0) return null;
+
+  const level = numPr.ilvl ?? 0;
+  const counters = listCounters.get(numId) ?? new Array(9).fill(0);
+
+  counters[level] = (counters[level] ?? 0) + 1;
+  for (let i = level + 1; i < counters.length; i += 1) {
+    counters[i] = 0;
+  }
+  listCounters.set(numId, counters);
+
+  // Bullets keep their literal marker (•, ▪, custom glyph, etc.).
+  // Numbered lists with a parsed lvlText template (e.g., "%1.") get %N
+  // tokens resolved against the counter stack. Lists created in the editor
+  // (no template) fall back to the generic "1.", "1.1." formatter.
+  if (pmAttrs.listIsBullet) {
+    return pmAttrs.listMarker || '•';
+  }
+  if (pmAttrs.listMarker && pmAttrs.listMarker.includes('%')) {
+    return resolveListTemplate(pmAttrs.listMarker, counters, pmAttrs.listLevelNumFmts ?? undefined);
+  }
+  if (pmAttrs.listMarker) {
+    return pmAttrs.listMarker;
+  }
+  return formatNumberedMarker(counters, level);
+}
+
+/**
  * Convert PM paragraph attrs to layout engine paragraph attrs.
  */
-function convertParagraphAttrs(pmAttrs: PMParagraphAttrs, theme?: Theme | null): ParagraphAttrs {
+function convertParagraphAttrs(
+  pmAttrs: PMParagraphAttrs,
+  theme?: Theme | null,
+  listCounters?: Map<number, number[]>
+): ParagraphAttrs {
   const attrs: ParagraphAttrs = {};
 
   // Alignment - map DOCX values to CSS-compatible values
@@ -562,7 +695,13 @@ function convertParagraphAttrs(pmAttrs: PMParagraphAttrs, theme?: Theme | null):
       ilvl: pmAttrs.numPr.ilvl,
     };
   }
-  if (pmAttrs.listMarker) {
+  // Resolve the OOXML lvlText template (e.g. "%1.") into the rendered marker
+  // ("1.", "II.", "1.1.", etc.). Done here so it covers paragraphs in the
+  // body, table cells, and text boxes — all share this attr conversion.
+  const resolvedMarker = listCounters ? computeListMarker(pmAttrs, listCounters) : null;
+  if (resolvedMarker != null) {
+    attrs.listMarker = resolvedMarker;
+  } else if (pmAttrs.listMarker) {
     attrs.listMarker = pmAttrs.listMarker;
   }
   if (pmAttrs.listIsBullet != null) {
@@ -633,7 +772,7 @@ function convertParagraph(
 ): ParagraphBlock {
   const pmAttrs = node.attrs as PMParagraphAttrs;
   const runs = paragraphToRuns(node, startPos, options);
-  const attrs = convertParagraphAttrs(pmAttrs, options.theme);
+  const attrs = convertParagraphAttrs(pmAttrs, options.theme, options.listCounters);
 
   return {
     kind: 'paragraph',
@@ -992,7 +1131,11 @@ export function toFlowBlocks(doc: PMNode, options: ToFlowBlocksOptions = {}): Fl
 
   const blocks: FlowBlock[] = [];
   const offset = 0; // Start at document beginning
-  const listCounters = new Map<number, number[]>();
+  // Shared counter map: paragraphs in tables and text boxes update it too,
+  // so list numbering stays continuous across containers.
+  if (!opts.listCounters) {
+    opts.listCounters = new Map<number, number[]>();
+  }
 
   doc.forEach((node, nodeOffset) => {
     const pos = offset + nodeOffset;
@@ -1002,26 +1145,6 @@ export function toFlowBlocks(doc: PMNode, options: ToFlowBlocksOptions = {}): Fl
         {
           const block = convertParagraph(node, pos, opts);
           const pmAttrs = node.attrs as PMParagraphAttrs;
-
-          if (pmAttrs.numPr) {
-            if (!pmAttrs.listMarker) {
-              const numId = pmAttrs.numPr.numId;
-              // numId === 0 means "no numbering" per OOXML spec (ECMA-376)
-              if (numId == null || numId === 0) break;
-              const level = pmAttrs.numPr.ilvl ?? 0;
-              const counters = listCounters.get(numId) ?? new Array(9).fill(0);
-
-              counters[level] = (counters[level] ?? 0) + 1;
-              for (let i = level + 1; i < counters.length; i += 1) {
-                counters[i] = 0;
-              }
-
-              listCounters.set(numId, counters);
-
-              const marker = pmAttrs.listIsBullet ? '•' : formatNumberedMarker(counters, level);
-              block.attrs = { ...block.attrs, listMarker: marker };
-            }
-          }
 
           blocks.push(block);
 
