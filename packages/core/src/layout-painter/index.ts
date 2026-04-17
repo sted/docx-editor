@@ -48,6 +48,7 @@ export {
   TEXTBOX_CLASS_NAMES,
   type RenderContext,
 };
+export type { HeaderFooterContent } from './renderPage';
 
 /**
  * Block lookup entry for painter

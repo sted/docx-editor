@@ -28,10 +28,66 @@
       "import": "./dist/mcp.mjs",
       "require": "./dist/mcp.js"
     },
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "import": "./dist/*.mjs",
-      "require": "./dist/*.js"
+    "./prosemirror": {
+      "types": "./dist/prosemirror/index.d.ts",
+      "import": "./dist/prosemirror/index.mjs",
+      "require": "./dist/prosemirror/index.js"
+    },
+    "./prosemirror/extensions": {
+      "types": "./dist/prosemirror/extensions/index.d.ts",
+      "import": "./dist/prosemirror/extensions/index.mjs",
+      "require": "./dist/prosemirror/extensions/index.js"
+    },
+    "./prosemirror/editor.css": "./dist/prosemirror/editor.css",
+    "./layout-engine": {
+      "types": "./dist/layout-engine/index.d.ts",
+      "import": "./dist/layout-engine/index.mjs",
+      "require": "./dist/layout-engine/index.js"
+    },
+    "./layout-painter": {
+      "types": "./dist/layout-painter/index.d.ts",
+      "import": "./dist/layout-painter/index.mjs",
+      "require": "./dist/layout-painter/index.js"
+    },
+    "./layout-bridge/toFlowBlocks": {
+      "types": "./dist/layout-bridge/toFlowBlocks.d.ts",
+      "import": "./dist/layout-bridge/toFlowBlocks.mjs",
+      "require": "./dist/layout-bridge/toFlowBlocks.js"
+    },
+    "./layout-bridge/measuring": {
+      "types": "./dist/layout-bridge/measuring/index.d.ts",
+      "import": "./dist/layout-bridge/measuring/index.mjs",
+      "require": "./dist/layout-bridge/measuring/index.js"
+    },
+    "./layout-bridge/clickToPositionDom": {
+      "types": "./dist/layout-bridge/clickToPositionDom.d.ts",
+      "import": "./dist/layout-bridge/clickToPositionDom.mjs",
+      "require": "./dist/layout-bridge/clickToPositionDom.js"
+    },
+    "./layout-bridge/selectionRects": {
+      "types": "./dist/layout-bridge/selectionRects.d.ts",
+      "import": "./dist/layout-bridge/selectionRects.mjs",
+      "require": "./dist/layout-bridge/selectionRects.js"
+    },
+    "./managers": {
+      "types": "./dist/managers/index.d.ts",
+      "import": "./dist/managers/index.mjs",
+      "require": "./dist/managers/index.js"
+    },
+    "./plugin-api": {
+      "types": "./dist/plugin-api/index.d.ts",
+      "import": "./dist/plugin-api/index.mjs",
+      "require": "./dist/plugin-api/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.mjs",
+      "require": "./dist/types/index.js"
+    },
+    "./utils/textSelection": {
+      "types": "./dist/utils/textSelection.d.ts",
+      "import": "./dist/utils/textSelection.mjs",
+      "require": "./dist/utils/textSelection.js"
     }
   },
   "typesVersions": {
@@ -44,6 +100,42 @@
       ],
       "mcp": [
         "./dist/mcp.d.ts"
+      ],
+      "prosemirror": [
+        "./dist/prosemirror/index.d.ts"
+      ],
+      "prosemirror/extensions": [
+        "./dist/prosemirror/extensions/index.d.ts"
+      ],
+      "layout-engine": [
+        "./dist/layout-engine/index.d.ts"
+      ],
+      "layout-painter": [
+        "./dist/layout-painter/index.d.ts"
+      ],
+      "layout-bridge/toFlowBlocks": [
+        "./dist/layout-bridge/toFlowBlocks.d.ts"
+      ],
+      "layout-bridge/measuring": [
+        "./dist/layout-bridge/measuring/index.d.ts"
+      ],
+      "layout-bridge/clickToPositionDom": [
+        "./dist/layout-bridge/clickToPositionDom.d.ts"
+      ],
+      "layout-bridge/selectionRects": [
+        "./dist/layout-bridge/selectionRects.d.ts"
+      ],
+      "managers": [
+        "./dist/managers/index.d.ts"
+      ],
+      "plugin-api": [
+        "./dist/plugin-api/index.d.ts"
+      ],
+      "types": [
+        "./dist/types/index.d.ts"
+      ],
+      "utils/textSelection": [
+        "./dist/utils/textSelection.d.ts"
       ]
     }
   },
@@ -54,23 +146,36 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/copy-assets.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "docxtemplater": "^3.50.0",
     "jszip": "^3.10.1",
     "pizzip": "^3.1.7",
+    "xml-js": "^1.6.11"
+  },
+  "peerDependencies": {
     "prosemirror-commands": "^1.5.2",
     "prosemirror-dropcursor": "^1.8.2",
     "prosemirror-history": "^1.4.0",
     "prosemirror-keymap": "^1.2.2",
     "prosemirror-model": "^1.19.4",
     "prosemirror-state": "^1.4.3",
-    "prosemirror-transform": "^1.10.2",
     "prosemirror-tables": "^1.8.5",
-    "prosemirror-view": "^1.32.7",
-    "xml-js": "^1.6.11"
+    "prosemirror-transform": "^1.10.2",
+    "prosemirror-view": "^1.32.7"
+  },
+  "devDependencies": {
+    "prosemirror-commands": "^1.5.2",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-history": "^1.4.0",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.19.4",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.10.2",
+    "prosemirror-view": "^1.32.7"
   },
   "keywords": [
     "docx",

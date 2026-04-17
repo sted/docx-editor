@@ -38,7 +38,7 @@
     },
     "packages/agent-use": {
       "name": "@eigenpal/docx-editor-agents",
-      "version": "0.0.31",
+      "version": "0.0.34",
       "dependencies": {
         "docxtemplater": "^3.50.0",
         "jszip": "^3.10.1",
@@ -56,6 +56,9 @@
         "docxtemplater": "^3.50.0",
         "jszip": "^3.10.1",
         "pizzip": "^3.1.7",
+        "xml-js": "^1.6.11",
+      },
+      "devDependencies": {
         "prosemirror-commands": "^1.5.2",
         "prosemirror-dropcursor": "^1.8.2",
         "prosemirror-history": "^1.4.0",
@@ -65,12 +68,22 @@
         "prosemirror-tables": "^1.8.5",
         "prosemirror-transform": "^1.10.2",
         "prosemirror-view": "^1.32.7",
-        "xml-js": "^1.6.11",
+      },
+      "peerDependencies": {
+        "prosemirror-commands": "^1.5.2",
+        "prosemirror-dropcursor": "^1.8.2",
+        "prosemirror-history": "^1.4.0",
+        "prosemirror-keymap": "^1.2.2",
+        "prosemirror-model": "^1.19.4",
+        "prosemirror-state": "^1.4.3",
+        "prosemirror-tables": "^1.8.5",
+        "prosemirror-transform": "^1.10.2",
+        "prosemirror-view": "^1.32.7",
       },
     },
     "packages/react": {
       "name": "@eigenpal/docx-js-editor",
-      "version": "0.0.31",
+      "version": "0.0.34",
       "dependencies": {
         "@radix-ui/react-select": "^2.2.6",
         "clsx": "^2.1.0",
