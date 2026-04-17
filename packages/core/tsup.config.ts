@@ -9,6 +9,21 @@ export default defineConfig([
       headless: 'src/headless.ts',
       'core-plugins': 'src/core-plugins/index.ts',
       mcp: 'src/mcp/index.ts',
+      // Subpath entries — stable public surface at directory-boundary
+      // granularity, so framework adapters outside packages/{react,vue}
+      // can consume internals without reaching into src/.
+      'prosemirror/index': 'src/prosemirror/index.ts',
+      'prosemirror/extensions/index': 'src/prosemirror/extensions/index.ts',
+      'layout-engine/index': 'src/layout-engine/index.ts',
+      'layout-painter/index': 'src/layout-painter/index.ts',
+      'layout-bridge/toFlowBlocks': 'src/layout-bridge/toFlowBlocks.ts',
+      'layout-bridge/measuring/index': 'src/layout-bridge/measuring/index.ts',
+      'layout-bridge/clickToPositionDom': 'src/layout-bridge/clickToPositionDom.ts',
+      'layout-bridge/selectionRects': 'src/layout-bridge/selectionRects.ts',
+      'managers/index': 'src/managers/index.ts',
+      'plugin-api/index': 'src/plugin-api/index.ts',
+      'types/index': 'src/types/index.ts',
+      'utils/textSelection': 'src/utils/textSelection.ts',
     },
     format: ['cjs', 'esm'],
     dts: true,
