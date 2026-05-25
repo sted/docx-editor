@@ -1,5 +1,16 @@
 # @eigenpal/docx-js-editor
 
+## 1.0.3
+
+### Patch Changes
+
+- 3e4b98e: Fix inline-image header lines to match Word. A line with a tall inline logo plus short text now baseline-aligns the label with the image bottom instead of centering it in an inflated line box, so it hugs the paragraph border. Inline images also honor their `wp:inline` distT/distB wrap distances, which previously only the block-image path applied.
+- 0a93cc3: Internal: co-locate the Tailwind library config inside `packages/react/`. No runtime change.
+- Updated dependencies [d91357e]
+  - @eigenpal/docx-editor-core@1.0.3
+  - @eigenpal/docx-editor-agents@1.0.3
+  - @eigenpal/docx-editor-i18n@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes
